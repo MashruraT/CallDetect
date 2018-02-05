@@ -25,111 +25,17 @@ import java.util.Date;
 
 public class CallDetect extends BroadcastReceiver{
 
-    MediaRecorder recorder;
-    File audiofile;
-    private boolean recordstarted;
-    private boolean ringing = false;
-    private int lastState = TelephonyManager.CALL_STATE_IDLE;
-    private String savedNumber;
-    private boolean isIncoming;
-
-//    @Override
-//    public void onReceive(Context context, Intent intent)
-//    {
-//        try {
-//            String state = intent.getStringExtra(TelephonyManager.EXTRA_STATE);
-//            if(state.equalsIgnoreCase(TelephonyManager.EXTRA_STATE_RINGING))
-//            {
-//
-//                Log.v("CallState","Entering ringing state. Recordstarted: "+recordstarted);
-//                String phnNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-//                Toast.makeText(context,"Ringing "+phnNumber,Toast.LENGTH_LONG).show();
-//                Log.v("CallState","Incoming"+phnNumber);
-//                ringing =true;
-//                recordstarted=false;
-//
-//                Log.v("CallState","Exiting ringing state. Recordstarted: "+recordstarted);
-//            }
-//            else if(state.equalsIgnoreCase(TelephonyManager.EXTRA_STATE_OFFHOOK))
-//            {
-//                Log.v("CallState","Entering offhook state. Recordstarted: "+recordstarted);
-//
-//                String phnNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER);
-//                Toast.makeText(context,"Connected "+phnNumber,Toast.LENGTH_LONG).show();
-//                Log.v("CallState","Connected "+phnNumber);
-//                Log.v("CallState","Recordstarted: "+recordstarted);
-//
-////                if(!recordstarted)
-////                {
-////                    String out = new SimpleDateFormat("dd-MM-yyyy-hh-mm-ss").format(new Date());
-////                    String baseDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-////                    String pathDir = baseDir + "/Android/data/com.myapp.mt.calldetect/";
-////
-////                    File sampleDir = new File(pathDir + File.separator + "TestRecordings");
-////                    if (!sampleDir.exists()) {
-////                        sampleDir.mkdirs();
-////                    }
-////
-////                    String file_name = "Record"+out;
-////                    try {
-////                        audiofile = File.createTempFile(file_name, ".amr", sampleDir);
-////                    } catch (IOException e) {
-////                        e.printStackTrace();
-////                    }
-////                    //String path = Environment.getExternalStorageDirectory().getAbsolutePath();
-////
-////                    recorder = new MediaRecorder();
-//////                          recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL);
-////
-////                    recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
-////                    recorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_NB);
-////                    recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-////                    recorder.setOutputFile(audiofile.getAbsolutePath());
-////                    try {
-////                        recorder.prepare();
-////
-////                    } catch (IllegalStateException e) {
-////                        e.printStackTrace();
-////                    } catch (IOException e) {
-////                        e.printStackTrace();
-////                    }
-////                    recorder.start();
-////                    recordstarted = true;
-////
-////                    Log.v("CallState","Writing file"+audiofile.getAbsolutePath());
-////                    Log.v("CallState","Recording started");
-////                    Toast.makeText(context,"Recording started",Toast.LENGTH_LONG).show();
-////                }
-//                Log.v("CallState","Exiting offhook state. Recordstarted: "+recordstarted);
-//
-//            }
-//            else if(state.equalsIgnoreCase(TelephonyManager.EXTRA_STATE_IDLE))
-//            {
-//                Log.v("CallState","Entering idle state. Recordstarted: "+recordstarted);
-//                Toast.makeText(context,"Idle",Toast.LENGTH_LONG).show();
-//                Log.v("CallState","Idle");
-//
-//                Toast.makeText(context,"Finished recording",Toast.LENGTH_LONG).show();
-//                Log.v("CallState","Recording Status: "+recordstarted);
-//                if(recordstarted)
-//                {
-//                    Log.v("CallState","Recording Status: "+recordstarted);
-//                    recorder.stop();
-//                    recorder.release();
-//                }
-//                recordstarted=false;
-//                Log.v("CallState","Exiting idle state. Recordstarted: "+recordstarted);
-//
-//            }
-//        }
-//        catch (Exception e)
-//        {
-//            e.printStackTrace();
-//        }
-//    }
+    static MediaRecorder recorder;
+    static File audiofile;
+    static boolean recordstarted=false;
+    static boolean ringing = false;
+    static int lastState = TelephonyManager.CALL_STATE_IDLE;
+    static String savedNumber;
+    static boolean isIncoming;
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        Log.v("CallState","OnRecieve");
 //        startRecording();
         //We listen to two intents.  The new outgoing call only tells us of an outgoing call.  We use it to get the number.
         if (intent.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) {
@@ -149,6 +55,8 @@ public class CallDetect extends BroadcastReceiver{
             {
                 state = TelephonyManager.CALL_STATE_IDLE;
             }
+            Log.v("CallState","State="+Integer.toString(state));
+
             onCallStateChanged(context, state, number);
         }
     }
@@ -172,8 +80,9 @@ public class CallDetect extends BroadcastReceiver{
                 break;
             case TelephonyManager.CALL_STATE_OFFHOOK:
                 //Transition of ringing->offhook are pickups of incoming calls.  Nothing done on them
-                if(!recordstarted)
+                if(!recordstarted) {
                     startRecording(context);
+                }
                 Log.v("CallState","Call connected");
                 Toast.makeText(context,"Call connected",Toast.LENGTH_LONG).show();
 
@@ -224,12 +133,14 @@ public class CallDetect extends BroadcastReceiver{
 
     private void startRecording(Context context) {
         String basedir = Environment.getExternalStorageDirectory().getAbsolutePath();
-        //String pathDir = basedir + "/Android/data/com.myapp.mt.calldetect/";
+        String pathDir = basedir + "/Android/data/com.myapp.mt.calldetect/";
 
+        //basedir="sdcard/";
         File sampleDir = new File(basedir + File.separator + "TestRecordings");
         if (!sampleDir.exists()) {
             sampleDir.mkdirs();
         }
+
         String out = new SimpleDateFormat("dd-MM-yyyy-hh-mm-ss").format(new Date());
 
         String file_name = "Record"+out;
@@ -255,16 +166,29 @@ public class CallDetect extends BroadcastReceiver{
         } catch (IOException e) {
             e.printStackTrace();
         }
-        recorder.start();
-        recordstarted = true;
+
+        try {
+            recorder.start();
+            recordstarted = true;
+        }
+        catch(Exception e)
+        {;}
         Toast.makeText(context,"Recording started",Toast.LENGTH_LONG).show();
         Log.v("CallState","Recording started");
     }
 
     private void stopRecording(Context context) {
+
         if (recordstarted) {
-            recorder.stop();
-            recordstarted = false;
+            try {
+                recorder.stop();
+                recordstarted = false;
+            }
+            catch(Exception e)
+            {
+
+                System.out.print("could not stop");
+            }
 
             Toast.makeText(context,"Recording finished",Toast.LENGTH_LONG).show();
             Log.v("CallState","Recording finished");
