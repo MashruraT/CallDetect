@@ -154,7 +154,7 @@ public class CallDetect extends BroadcastReceiver{
         recorder = new MediaRecorder();
 //                          recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_CALL);
 
-        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
+        recorder.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION);
         recorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_NB);
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
         recorder.setOutputFile(audiofile.getAbsolutePath());
