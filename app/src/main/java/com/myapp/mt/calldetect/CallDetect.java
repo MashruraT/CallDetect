@@ -1,16 +1,19 @@
 package com.myapp.mt.calldetect;
 
+import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.v4.app.ActivityCompat;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.Toast;
@@ -28,14 +31,15 @@ import java.util.Date;
  * Created by MT on 2018-01-25.
  */
 
-public class CallDetect extends BroadcastReceiver{
+public class CallDetect extends BroadcastReceiver {
 
     //static MediaRecorder recorder;
     static File audiofile;
-    static boolean recordstarted=false;
+    static boolean recordstarted = false;
     static boolean ringing = false;
     static int lastState = TelephonyManager.CALL_STATE_IDLE;
     static String savedNumber;
+    static String myNumber;
     static boolean isIncoming;
 
 
@@ -59,27 +63,24 @@ public class CallDetect extends BroadcastReceiver{
                 AudioFormat.CHANNEL_CONFIGURATION_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
 
-        Log.v("CallState","OnRecieve");
+        Log.v("CallState", "OnRecieve");
 //        startRecording();
         //We listen to two intents.  The new outgoing call only tells us of an outgoing call.  We use it to get the number.
         if (intent.getAction().equals("android.intent.action.NEW_OUTGOING_CALL")) {
             savedNumber = intent.getExtras().getString("android.intent.extra.PHONE_NUMBER");
-            Log.v("CallState","Calling " +savedNumber);
+            Log.v("CallState", "Calling " + savedNumber);
         } else {
             String stateStr = intent.getExtras().getString(TelephonyManager.EXTRA_STATE);
             String number = intent.getExtras().getString(TelephonyManager.EXTRA_INCOMING_NUMBER);
             int state = 0;
             if (stateStr.equals(TelephonyManager.EXTRA_STATE_RINGING)) {
                 state = TelephonyManager.CALL_STATE_RINGING;
-            }
-            else if (stateStr.equals(TelephonyManager.EXTRA_STATE_OFFHOOK)) {
+            } else if (stateStr.equals(TelephonyManager.EXTRA_STATE_OFFHOOK)) {
                 state = TelephonyManager.CALL_STATE_OFFHOOK;
-            }
-            else
-            {
+            } else {
                 state = TelephonyManager.CALL_STATE_IDLE;
             }
-            Log.v("CallState","State="+Integer.toString(state));
+            Log.v("CallState", "State=" + Integer.toString(state));
 
             onCallStateChanged(context, state, number);
         }
@@ -98,16 +99,16 @@ public class CallDetect extends BroadcastReceiver{
 //                callStartTime = new Date();
                 savedNumber = number;
 //                onIncomingCallReceived(context, number, callStartTime);
-                Log.v("CallState","Ringing: "+number);
-                Toast.makeText(context,"Ringing: "+number,Toast.LENGTH_LONG).show();
+                Log.v("CallState", "Ringing: " + number);
+                Toast.makeText(context, "Ringing: " + number, Toast.LENGTH_SHORT).show();
 
                 break;
             case TelephonyManager.CALL_STATE_OFFHOOK:
                 //Transition of ringing->offhook are pickups of incoming calls.  Nothing done on them
-                startRecording();
+                startRecording(context);
 
-                Log.v("CallState","Call connected");
-                Toast.makeText(context,"Call connected",Toast.LENGTH_LONG).show();
+                Log.v("CallState", "Call connected");
+                Toast.makeText(context, "Call connected", Toast.LENGTH_SHORT).show();
 
 //                if (lastState != TelephonyManager.CALL_STATE_RINGING) {
 //                    isIncoming = false;
@@ -127,9 +128,9 @@ public class CallDetect extends BroadcastReceiver{
 //                }
                 break;
             case TelephonyManager.CALL_STATE_IDLE:
-                stopRecording();
-                Log.v("CallState","Idle");
-                Toast.makeText(context,"Idle",Toast.LENGTH_LONG).show();
+                stopRecording(context);
+                Log.v("CallState", "Idle");
+                Toast.makeText(context, "Idle", Toast.LENGTH_SHORT).show();
                 //Went to idle-  this is the end of a call.  What type depends on previous state(s)
 //                if (lastState == TelephonyManager.CALL_STATE_RINGING) {
 //                    //Ring but no pickup-  a miss
@@ -218,7 +219,7 @@ public class CallDetect extends BroadcastReceiver{
 //        }
 //    }
 
-    private String getFilename(){
+    private String getFilename(Context context) {
         String basedir = Environment.getExternalStorageDirectory().getAbsolutePath();
         //String filepath = Environment.getExternalStorageDirectory().getPath();
         File file = new File(basedir + File.separator + "TestRecordings");
@@ -229,9 +230,15 @@ public class CallDetect extends BroadcastReceiver{
             file.mkdirs();
         }
 
+        DataRepo repo = new DataRepo(context);
+        Person person = repo.getPersonById(1);
+
+        myNumber=person.phone;
+
         String out = new SimpleDateFormat("yyyy-MM-dd-hh-mm-ss").format(new Date());
 
-        String file_name = "Record"+out;
+        String file_name = myNumber+"_"+out;
+        Log.v("CallDetect","Saving to: "+file.getAbsolutePath() + "/" + file_name + AUDIO_RECORDER_FILE_EXT_WAV);
         return (file.getAbsolutePath() + "/" + file_name + AUDIO_RECORDER_FILE_EXT_WAV);
     }
 
@@ -256,7 +263,8 @@ public class CallDetect extends BroadcastReceiver{
         return (file.getAbsolutePath() + "/" + AUDIO_RECORDER_TEMP_FILE);
     }
 
-    private void startRecording(){
+    private void startRecording(Context context){
+
         recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 RECORDER_SAMPLERATE, RECORDER_CHANNELS,RECORDER_AUDIO_ENCODING, bufferSize);
 
@@ -264,7 +272,7 @@ public class CallDetect extends BroadcastReceiver{
         if(i==1){
             recorder.startRecording();
             Log.v("CallState","Recording started");
-            //Toast.makeText(Context,"Recording Started",Toast.LENGTH_LONG).show();
+            Toast.makeText(context,"Recording Started",Toast.LENGTH_SHORT).show();
         }
 
 
@@ -289,7 +297,7 @@ public class CallDetect extends BroadcastReceiver{
         try {
             os = new FileOutputStream(filename);
         } catch (FileNotFoundException e) {
-// TODO Auto-generated catch block
+        // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
@@ -316,16 +324,16 @@ public class CallDetect extends BroadcastReceiver{
         }
     }
 
-    private void stopRecording(){
-        if(null != recorder){
+    private void stopRecording(Context context){
+        if(recorder != null){
             isRecording = false;
             Log.v("CallState","Recording finished");
+            Toast.makeText(context,"Recording finished",Toast.LENGTH_SHORT).show();
 
             int i = recorder.getState();
             if(i==1)
             {
                 recorder.stop();
-
             }
 
             recorder.release();
@@ -334,7 +342,8 @@ public class CallDetect extends BroadcastReceiver{
             recordingThread = null;
         }
 
-        copyWaveFile(getTempFilename(),getFilename());
+
+        copyWaveFile(getTempFilename(),getFilename(context));
         deleteTempFile();
     }
 
