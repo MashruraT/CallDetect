@@ -11,14 +11,21 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import static android.content.ContentValues.TAG;
 
 
 public class RecordSample1 extends Activity {
@@ -29,6 +36,11 @@ public class RecordSample1 extends Activity {
     private static final int RECORDER_SAMPLERATE = 16000;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+
+    //private String SERVER_URL = "https://drive.google.com/drive/folders/171oZoe-hpXXuosxIG7HQKTfB-5QKnkri?usp=sharing";
+    //private String SERVER_URL = "http://204.209.76.168";
+    private String SERVER_URL = "http://162.246.156.239/emoDetect/voicePrint.php";
+    private String selectedFilePath;
 
     private AudioRecord recorder = null;
     private int bufferSize = 0;
@@ -109,6 +121,7 @@ public class RecordSample1 extends Activity {
 
         String file_name = myNumber+"_1";
         Log.v("Recording 1", file.getAbsolutePath() + "/" + file_name + AUDIO_RECORDER_FILE_EXT_WAV );
+        selectedFilePath=file.getAbsolutePath() + "/" + file_name + AUDIO_RECORDER_FILE_EXT_WAV;
         return (file.getAbsolutePath() + "/" + file_name + AUDIO_RECORDER_FILE_EXT_WAV);
     }
 
@@ -205,6 +218,23 @@ public class RecordSample1 extends Activity {
 
         copyWaveFile(getTempFilename(),getFilename());
         deleteTempFile();
+
+        if(selectedFilePath != null){
+            final int[] uploadResult = new int[1];
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    //creating new thread to handle Http Operations
+                    uploadResult[0] = uploadFile(selectedFilePath);
+                }
+            }).start();
+            Log.v("Upload Result","Server Response Code: "+ uploadResult[0]);
+        }else{
+            Log.v("File upload", "File path not valid");
+        }
+
+
         Intent intent = new Intent(this, RecordSample2.class);
 //        intent.putExtra("person_Id", 0);
         startActivity(intent);
@@ -333,4 +363,118 @@ public class RecordSample1 extends Activity {
             }
         }
     };
+
+
+    public int uploadFile(final String selectedFilePath){
+
+        int serverResponseCode = 0;
+
+        HttpURLConnection connection;
+        DataOutputStream dataOutputStream;
+        String lineEnd = "\r\n";
+        String twoHyphens = "--";
+        String boundary = "*****";
+
+
+        int bytesRead,bytesAvailable,bufferSize;
+        byte[] buffer;
+        int maxBufferSize = 1 * 1024 * 1024;
+        File selectedFile = new File(selectedFilePath);
+
+
+        String[] parts = selectedFilePath.split("/");
+        final String fileName = parts[parts.length-1];
+
+        if (!selectedFile.isFile()){
+                runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.v("CallDetect","File not found");
+                }
+            });
+            return 0;
+        }else{
+            try{
+                FileInputStream fileInputStream = new FileInputStream(selectedFile);
+                URL url = new URL(SERVER_URL);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setDoInput(true);//Allow Inputs
+                connection.setDoOutput(true);//Allow Outputs
+                connection.setUseCaches(false);//Don't use a cached Copy
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Connection", "Keep-Alive");
+                connection.setRequestProperty("ENCTYPE", "multipart/form-data");
+                connection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+                connection.setRequestProperty("uploaded_file",selectedFilePath);
+
+                //creating new dataoutputstream
+                dataOutputStream = new DataOutputStream(connection.getOutputStream());
+
+                //writing bytes to data outputstream
+                dataOutputStream.writeBytes(twoHyphens + boundary + lineEnd);
+                dataOutputStream.writeBytes("Content-Disposition: form-data; name=\"uploaded_file\";filename=\""
+                        + selectedFilePath + "\"" + lineEnd);
+
+                dataOutputStream.writeBytes(lineEnd);
+
+                //returns no. of bytes present in fileInputStream
+                bytesAvailable = fileInputStream.available();
+                //selecting the buffer size as minimum of available bytes or 1 MB
+                bufferSize = Math.min(bytesAvailable,maxBufferSize);
+                //setting the buffer as byte array of size of bufferSize
+                buffer = new byte[bufferSize];
+
+                //reads bytes from FileInputStream(from 0th index of buffer to buffersize)
+                bytesRead = fileInputStream.read(buffer,0,bufferSize);
+
+                //loop repeats till bytesRead = -1, i.e., no bytes are left to read
+                while (bytesRead > 0){
+                    //write the bytes read from inputstream
+                    dataOutputStream.write(buffer,0,bufferSize);
+                    bytesAvailable = fileInputStream.available();
+                    bufferSize = Math.min(bytesAvailable,maxBufferSize);
+                    bytesRead = fileInputStream.read(buffer,0,bufferSize);
+                }
+
+                dataOutputStream.writeBytes(lineEnd);
+                dataOutputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd);
+
+                serverResponseCode = connection.getResponseCode();
+                String serverResponseMessage = connection.getResponseMessage();
+
+                Log.v(TAG, "Server Response is: " + serverResponseMessage + ": " + serverResponseCode);
+
+                //response code of 200 indicates the server status OK
+                if(serverResponseCode == 200){
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Log.v("CallDetect","File " + fileName + " has been successfully uploaded");
+                        }
+                    });
+                }
+
+                //closing the input and output streams
+                fileInputStream.close();
+                dataOutputStream.flush();
+                dataOutputStream.close();
+
+
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                Log.v("CallDetect","File Not Found");
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+                Log.v("File Upload","URL error");
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                Log.v("File Upload", "Read/Write error");
+            }
+
+            return serverResponseCode;
+        }
+
+    }
 }
