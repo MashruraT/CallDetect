@@ -2,7 +2,7 @@
     <string name="app_name">CallDetect</string>
     <string name="description">This application monitors your emotional state on the basis of your voice tone.\n
         This application uses network connection to upload your conversation to secure server. Your personal information or conversation audio will not be shared with anyone else\n\n
-        Press "Continue", if you agree.
+        If you agree, please press \"Continue\".
     </string>
     <string name="app_info">This is a simple audio recorder.</string>
     <string name="start_recording">Record</string>

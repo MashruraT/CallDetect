@@ -27,7 +27,7 @@
             android:layout_alignParentTop="true"
             android:layout_marginTop="10dp"
             android:text="@string/description"
-            android:textSize="15dp"/>
+            android:textSize="20dp"/>
 
     </ScrollView>
     <Button

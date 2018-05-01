@@ -489,11 +489,12 @@ public class CallDetect extends BroadcastReceiver {
         String[] parts = selectedFilePath.split("/");
         final String fileName = parts[parts.length-1];
 
+        long maxLength = 50*1024*1024;
         if (!selectedFile.isFile()){
             Log.v("CallDetect","File not found");
             return 0;
         }
-        else if(selectedFile.length()> (20*1024*1024)){
+        else if(selectedFile.length()> maxLength){
             Log.v("CallDetect", "File size too big");
         }
         else{
